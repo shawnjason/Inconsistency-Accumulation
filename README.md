@@ -11,12 +11,12 @@ ORCID: [0009-0003-9208-1556](https://orcid.org/0009-0003-9208-1556)
 
 ## What This Repository Contains
 
-Seven standalone Lean 4 proof files covering all policy-level discrete results
-of the paper that admit a concise machine-checked formalization. The proofs
-split into two groups: an **arithmetic witness core** that mechanically
-verifies the specific sum-based witness family used in Section 7 of the paper,
-and a **policy-level group** that formalizes the paper's main lemmas and the
-deterministic clause of the main theorem.
+Eight standalone Lean 4 proof files covering all discrete-case policy-level
+results of the paper. The proofs split into two groups: an **arithmetic
+witness core** that mechanically verifies the specific sum-based witness
+family used in Section 7 of the paper, and a **policy-level group** that
+formalizes the paper's main lemmas, both clauses of the main theorem, and
+the positive summary-sufficiency result.
 
 Each file is independent, imports only `Mathlib.Tactic`, and verifies in the
 Lean 4 web editor at [live.lean-lang.org](https://live.lean-lang.org) against
@@ -63,6 +63,14 @@ an `N`-block environment in which every block forces a non-extendable
 commitment. The cumulative inconsistency counter satisfies `I_N = N` exactly.
 Constructed as `List.replicate` of the Lemma 2 policy-indexed block.
 
+**`accumulation_stochastic.lean`** — Theorem 1 (stochastic clause)
+For every stochastic forward-local policy with `|U| ≥ 2` and every `N`,
+there exists an `N`-block environment in which the expected cumulative
+inconsistency satisfies `E[I_N] ≥ N/|U|`. The Lean formalization delivers
+the uniform policy-independent bound `1/|U|` via a pigeonhole-on-
+probabilities argument and finite-sum linearity, so no measure-theoretic
+infrastructure is required.
+
 **`summary_sufficiency.lean`** — Proposition 1 (both clauses)
 Given an `AdmissibilityOracle` satisfying the extendability-preservation
 axioms (initial-admits, successor-admits), both clauses of Proposition 1 are
@@ -87,6 +95,7 @@ Each file is independent; no cross-file imports are required.
 | Lemma 1 | `forward_local_indistinguishability.lean` | `forward_local_indistinguishability` |
 | Lemma 2 | `single_block_failure.lean` | `single_block_failure_det` |
 | Theorem 1 (deterministic clause) | `accumulation_deterministic.lean` | `accumulation_deterministic` |
+| Theorem 1 (stochastic clause) | `accumulation_stochastic.lean` | `accumulation_stochastic` |
 | Proposition 1 (both clauses) | `summary_sufficiency.lean` | `summary_safe_zero_inconsistency`, `summary_safe_trajectory_exists` |
 | §7 arithmetic witness (extendability) | `extendability_indistinguishability.lean` | `extendability_indistinguishability` |
 | §7 forced inconsistency | `forced_inconsistency.lean` | `forced_inconsistency`, `admissible_action_preserved` |
@@ -94,17 +103,20 @@ Each file is independent; no cross-file imports are required.
 
 ## Scope and Limitations
 
-These proofs establish the formal skeleton of the paper's discrete
-policy-level results. They do not establish:
+These proofs establish the full formal skeleton of the paper's discrete
+policy-level results, including both the deterministic and stochastic
+clauses of Theorem 1. They do not establish:
 
-- **The stochastic clause of Theorem 1** (`E[I_N] ≥ p_π · N`). This requires
-  Mathlib's conditional-expectation infrastructure and a tower-property
-  argument over trajectory distributions. Its formalization is in progress
-  and not claimed in this release.
 - **The empirical corroboration** of Section 8 of the paper (simulation
   results). Those are reported separately.
 - **The application to bounded-context language models** (Section 9.2 of
   the paper), which is motivational rather than formal.
+
+Note that the stochastic clause of Theorem 1 is proved in Lean with a
+uniform bound `E[I_N] ≥ N/|U|`, which is strictly stronger than the
+original `E[I_N] ≥ p_π · N` form in earlier drafts of the paper: the
+constant `1/|U|` is uniform across all stochastic policies and depends
+only on the action-space cardinality.
 
 ## Associated Paper
 
