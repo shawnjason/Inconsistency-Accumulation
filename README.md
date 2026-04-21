@@ -2,7 +2,8 @@
 
 Machine-checked Lean 4 proofs for
 
-> **Inconsistency Accumulation in Forward-Local Sequential Policies: A Lower Bound under Delayed Constraints**
+**Inconsistency Accumulation in Forward-Local Sequential Policies: A Lower Bound under Delayed Constraints**
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19687094.svg)](https://doi.org/10.5281/zenodo.19687094)
 
 ## Author
 
