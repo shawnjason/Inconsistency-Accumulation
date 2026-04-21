@@ -1,6 +1,6 @@
 # Lean 4 Formalization — Inconsistency Accumulation in Forward-Local Sequential Policies
 
-Machine-checked Lean 4 proofs — including the full measure-theoretic integration theorem — for
+Machine-checked Lean 4 proofs for the discrete-case results of
 
 > **Inconsistency Accumulation in Forward-Local Sequential Policies: A Lower Bound under Delayed Constraints**
 
@@ -86,13 +86,28 @@ main integration theorem `E_μ[I_N] ≥ N/|U|` via the tower property and
 linearity of expectation. Depends on `Mathlib.MeasureTheory` and
 `Mathlib.Probability.ConditionalProbability`.
 
-The formalization is complete modulo one unfilled helper,
-`setIntegral_X_eq`, whose statement is the product-measure independence
-of disjoint coordinate blocks — a generic probability-theoretic fact
-equivalent to Fubini's theorem on the pi-measure, provable by routine
-calculation in Mathlib but not yet packaged as a standalone library
-lemma. The full bridge lemma, main integration theorem, and all
-supporting infrastructure compile against this helper.
+The file also proves supporting product-measure identities:
+`StochPolicy.asMeasure_singleton` (the policy measure's mass on a
+singleton equals the corresponding probability) and
+`trajectoryMeasure_real_singleton` (the real-valued mass the trajectory
+measure assigns to a singleton trajectory equals the product of
+per-coordinate probabilities, via `Measure.pi_pi`). A local helper
+`h_sum_eq_measure` inside the product-measure factorization expresses
+`μ.real(A)` as `∑ x, if x ∈ A then μ.real{x} else 0` on the finite
+trajectory space.
+
+The formalization is complete modulo two unfilled helpers:
+`F_measurable_determined` (the characterization that `F_k`-measurable
+sets are determined by the first `k` coordinates, a σ-algebra induction
+on generating cylinders) and the final step inside
+`setIntegral_X_eq_of_determined` (the product-measure independence
+identity, whose completion is blocked on a `Decidable`-instance
+normalization between `h_sum_eq_measure`'s set-builder-derived
+`Classical.propDecidable` and `Finset.sum_fiberwise`'s expected
+`instDecidableAnd`). Both are generic probability-theoretic or
+plumbing facts independent of the paper's specific construction;
+the bridge lemma, main integration theorem, and all other supporting
+infrastructure compile against them.
 
 **`summary_sufficiency.lean`** — Proposition 1 (both clauses)
 Given an `AdmissibilityOracle` satisfying the extendability-preservation
@@ -138,15 +153,16 @@ measure-theoretic forms. They do not establish:
   the paper), which is motivational rather than formal.
 
 The measure-theoretic file `accumulation_stochastic_measure.lean`
-contains one outstanding `sorry` on a helper lemma `setIntegral_X_eq`,
-which states the product-measure independence of disjoint coordinate
-blocks. This is a general probability-theoretic fact whose Lean
-formalization depends on further Mathlib infrastructure (specifically,
-a clean API for integrating coordinate-restricted functions against
-`Measure.pi` on finite factors) and is pursued as an orthogonal
-follow-on project. The bridge lemma, main integration theorem, and
-all supporting measurability, integrability, and filtration
-infrastructure compile against this helper.
+contains two outstanding `sorry`s on helper lemmas:
+`F_measurable_determined` (σ-algebra induction characterizing
+`F_k`-measurable sets as those determined by the first `k` coordinates)
+and the final factorization step inside `setIntegral_X_eq_of_determined`
+(blocked on a `Decidable`-instance normalization issue between
+set-builder and conjunction-based elaboration paths). Both are generic
+probability-theoretic or plumbing facts independent of the paper's
+specific construction. The bridge lemma, main integration theorem,
+and all other supporting measurability, integrability, filtration,
+and singleton-product-measure infrastructure compile against them.
 
 Note that the stochastic clause of Theorem 1 is proved in Lean with a
 uniform bound `E[I_N] ≥ N/|U|`, which is strictly stronger than the
