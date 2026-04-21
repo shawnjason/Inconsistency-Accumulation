@@ -134,6 +134,20 @@ instance asMeasure_isProbability : IsProbabilityMeasure π.asMeasure := by
      Use `π.sums_to_one` together with `Measure.sum_apply`
      and `Measure.dirac_apply`. Standard Mathlib. -/
 
+/-- The mass that the policy's measure assigns to a singleton equals
+    the probability of that action. -/
+lemma asMeasure_singleton (π : StochPolicy U) (u : U) :
+    π.asMeasure {u} = ENNReal.ofReal (π.prob u) := by
+  classical
+  unfold StochPolicy.asMeasure
+  rw [Measure.sum_apply _ (MeasurableSet.singleton u)]
+  -- Goal: ∑' v, (ENNReal.ofReal (π.prob v) • Measure.dirac v) {u} = ENNReal.ofReal (π.prob u)
+  simp only [Measure.smul_apply, Measure.dirac_apply' _ (MeasurableSet.singleton u),
+             Set.indicator_apply, Set.mem_singleton_iff, smul_eq_mul]
+  -- Only the term with v = u is nonzero
+  rw [tsum_eq_single u (fun v hv => by simp [hv])]
+  simp
+
 end StochPolicy
 
 /-- The admissible set for the adversarial block. By construction of the
@@ -202,6 +216,36 @@ instance trajectoryMeasure_isProbability
   have : ∀ i : Fin N, IsProbabilityMeasure (π.asMeasure : Measure U) :=
     fun _ => inferInstance
   infer_instance
+
+/-- The real-valued mass the trajectory measure assigns to a singleton
+    trajectory equals the product of per-coordinate probabilities. -/
+lemma trajectoryMeasure_real_singleton
+    (π : StochPolicy U) (N : ℕ) (x : Ω U N) :
+    (trajectoryMeasure π N).real {x} = ∏ i : Fin N, π.prob (x i) := by
+  classical
+  -- Rewrite {x} as a cylinder: Set.pi univ (fun i => {x i})
+  have h_cyl : ({x} : Set (Ω U N)) = Set.pi Set.univ (fun i => {x i}) := by
+    ext y
+    constructor
+    · rintro rfl
+      intro i _
+      exact Set.mem_singleton _
+    · intro hy
+      ext i
+      exact hy i (Set.mem_univ i)
+  -- Compute μ {x} = ∏ i, π.asMeasure {x i} via pi_pi
+  have h_measure : (trajectoryMeasure π N) {x}
+      = ∏ i : Fin N, π.asMeasure {x i} := by
+    rw [h_cyl]
+    exact MeasureTheory.Measure.pi_pi (fun _ => π.asMeasure)
+      (fun i => ({x i} : Set U))
+  -- Convert each factor via asMeasure_singleton, then take toReal
+  rw [Measure.real, h_measure]
+  rw [ENNReal.toReal_prod]
+  congr 1
+  funext i
+  rw [StochPolicy.asMeasure_singleton]
+  exact ENNReal.toReal_ofReal (π.nonneg _)
 
 /-! ## Section 3: Filtration and Failure Indicators
 
@@ -287,17 +331,126 @@ Once the bridge lemma is established, the main theorem follows by
 linearity of expectation: each E[X_k] ≥ 1/|U|, so E[∑ X_k] ≥ N/|U|.
 -/
 
+/-- **Determined-by-prefix characterization.** A set `s` on the finite
+    product `Ω = Fin N → U` is said to be *determined by the first k
+    coordinates* if membership in `s` depends only on the values of
+    those coordinates. -/
+def DeterminedByPrefix (N : ℕ) (k : ℕ) (s : Set (Ω U N)) : Prop :=
+  ∀ ω ω' : Ω U N, (∀ i : Fin N, i.val < k → ω i = ω' i) → (ω ∈ s ↔ ω' ∈ s)
+
+/-- Bridge from F_k-measurability to the determined-by-prefix property.
+    Every F_k-measurable set is determined by the first k coordinates;
+    this is an σ-algebra induction on the generating cylinders. -/
+lemma F_measurable_determined
+    (N : ℕ) (k : Fin (N+1)) (s : Set (Ω U N))
+    (hs : MeasurableSet[F (U := U) N k] s) :
+    DeterminedByPrefix N k.val s := by
+  sorry
+  /- TO PROVE: σ-algebra induction.
+     Base: generating cylinders {ω | ω i ∈ A} with i.val < k are determined.
+     Complement: determined-by closed under complement.
+     Union: determined-by closed under countable union. -/
+
+/-- Helper: for any set `s` determined by the first k coordinates, the
+    integral of X_k restricted to s equals π.prob B.badAction times
+    μ.real(s). This is the "independence of X_k from the first-k-coordinates
+    σ-algebra" statement, now reduced to a pure product-measure fact. -/
+lemma setIntegral_X_eq_of_determined
+    (π : StochPolicy U) (B : AdversarialBlock U π) (k : Fin N)
+    (s : Set (Ω U N))
+    (hs : DeterminedByPrefix N k.val s) :
+    ∫ ω in s, X π B k ω ∂(trajectoryMeasure π N)
+      = (trajectoryMeasure π N).real s * π.prob B.badAction := by
+  classical
+  -- Step 1: `s` is measurable in the ambient σ-algebra (finite space ⇒ all sets measurable)
+  have hs_meas : MeasurableSet s := MeasurableSet.of_discrete
+  -- Step 2: convert set integral to indicator integral
+  rw [← MeasureTheory.integral_indicator hs_meas]
+  -- Step 3: convert to finite sum via integral_fintype
+  -- Both sides will be manipulated via this.
+  rw [MeasureTheory.integral_fintype]
+  · -- Now: ∑ ω, μ.real{ω} • s.indicator (X π B k) ω = μ.real s * π.prob B.badAction
+    -- Use Set.indicator_apply to turn the indicator into an if-then
+    simp_rw [Set.indicator_apply]
+    -- Try collapsing: the sum is over ω where (ω ∈ s AND ω k = badAction)
+    -- Use Finset.sum_filter to pull out those ω where the indicator is nonzero
+    simp only [X, smul_eq_mul]
+    -- Factor the nested if
+    rw [show (fun x => (trajectoryMeasure π N).real {x} *
+              (if x ∈ s then (if x k = B.badAction then (1:ℝ) else 0) else 0))
+            = (fun x => if x ∈ s ∧ x k = B.badAction
+                        then (trajectoryMeasure π N).real {x} else 0) from by
+      funext x
+      by_cases hxs : x ∈ s
+      · by_cases hxk : x k = B.badAction
+        · simp [hxs, hxk]
+        · simp [hxs, hxk]
+      · simp [hxs]]
+    -- The sum equals μ.real applied to {x | x ∈ s ∧ x k = B.badAction}
+    -- which equals μ.real (s ∩ {x | x k = B.badAction}).
+    -- Once we have that, we apply Measure.pi_pi to factor it.
+    -- Key helper: for any set A on Ω, μ.real(A) = ∑ x, (if x ∈ A then μ.real{x} else 0)
+    have h_sum_eq_measure : ∀ (A : Set (Ω U N)),
+        (trajectoryMeasure π N).real A
+          = ∑ x, if x ∈ A then (trajectoryMeasure π N).real {x} else 0 := by
+      intro A
+      have hA : MeasurableSet A := MeasurableSet.of_discrete
+      have h1 : (trajectoryMeasure π N).real A
+          = ∫ _ω in A, (1 : ℝ) ∂(trajectoryMeasure π N) := by
+        simp [MeasureTheory.integral_const, Measure.real]
+      rw [h1]
+      rw [← MeasureTheory.integral_indicator hA]
+      rw [MeasureTheory.integral_fintype]
+      · congr 1
+        funext x
+        by_cases hxA : x ∈ A
+        · simp [Set.indicator_apply, hxA]
+        · simp [Set.indicator_apply, hxA]
+      · exact (integrable_const (1 : ℝ)).indicator hA
+    -- Apply the helper to convert the LHS sum into a measure of the set
+    rw [show (∑ x, if x ∈ s ∧ x k = B.badAction
+                   then (trajectoryMeasure π N).real {x} else 0)
+          = (trajectoryMeasure π N).real {x | x ∈ s ∧ x k = B.badAction} from by
+      rw [h_sum_eq_measure {x | x ∈ s ∧ x k = B.badAction}]
+      congr 1
+      funext x
+      simp [Set.mem_setOf_eq]]
+    -- Now: goal is μ.real({x | x ∈ s ∧ x k = bad}) = μ.real(s) * π.prob B.badAction
+    --
+    -- Strategy: express both sides as finite sums via h_sum_eq_measure,
+    -- substitute singleton measures via trajectoryMeasure_real_singleton,
+    -- then partition each sum by the value of coord k using sum_fiberwise.
+    -- On the LHS only the fiber at B.badAction contributes; on the RHS all
+    -- fibers contribute but the inner sums over coord-k factor out to 1.
+    rw [h_sum_eq_measure s]
+    rw [h_sum_eq_measure {x | x ∈ s ∧ x k = B.badAction}]
+    simp only [Set.mem_setOf_eq]
+    rw [Finset.sum_mul]
+    -- STATUS: The proof has reached the fiber-indexed factorization step.
+    -- The remaining work is the decidability-instance normalization issue
+    -- arising from h_sum_eq_measure's treatment of set-builder notation,
+    -- combined with sum_fiberwise's strict pattern matching. Closing this
+    -- requires either:
+    --   (a) a variant of h_sum_eq_measure stated over a predicate directly
+    --       (not via set-builder), or
+    --   (b) a reformulation that avoids the set-builder intermediate form.
+    -- Left as the remaining sorry for now.
+    sorry
+  · -- integrability of s.indicator (X π B k)
+    exact (X_integrable π B k).indicator hs_meas
+
 /-- Helper: for any F_k-measurable set s, the integral of X_k restricted
-    to s equals π.prob B.badAction times μ.real(s). This is the
-    "independence of X_k from the first-k-coordinates σ-algebra"
-    statement, proved via the finite-space route. -/
+    to s equals π.prob B.badAction times μ.real(s). This is obtained by
+    composing F_measurable_determined with setIntegral_X_eq_of_determined. -/
 lemma setIntegral_X_eq
     (π : StochPolicy U) (B : AdversarialBlock U π) (k : Fin N)
     (s : Set (Ω U N))
     (hs : MeasurableSet[F (U := U) N ⟨k.val, Nat.lt_succ_of_lt k.isLt⟩] s) :
     ∫ ω in s, X π B k ω ∂(trajectoryMeasure π N)
       = (trajectoryMeasure π N).real s * π.prob B.badAction := by
-  sorry
+  have hdet : DeterminedByPrefix N k.val s :=
+    F_measurable_determined N ⟨k.val, Nat.lt_succ_of_lt k.isLt⟩ s hs
+  exact setIntegral_X_eq_of_determined π B k s hdet
 
 /-- **Bridge lemma.** The conditional expectation of the block-k failure
     indicator given the first-k-blocks history is almost surely equal to
