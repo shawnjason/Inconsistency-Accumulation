@@ -1,6 +1,6 @@
 # Lean 4 Formalization — Inconsistency Accumulation in Forward-Local Sequential Policies
 
-Machine-checked Lean 4 proofs for
+Machine-checked Lean 4 proofs — including the full measure-theoretic integration theorem — for
 
 > **Inconsistency Accumulation in Forward-Local Sequential Policies: A Lower Bound under Delayed Constraints**
 
